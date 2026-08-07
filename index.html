@@ -4471,36 +4471,58 @@ renderPausedInteraction(liveTarget || autoTourPauseTarget);
 }, reducedMotion ? 0 : Math.max(0, delay));
 }
 function pauseAutomatedTourForInteraction(target) {
-if (!autoTourRunning) return;
-if (target instanceof Element && root.contains(target)) return;
-const resolvedTarget = target instanceof Element
-? target
-: document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
-const now = performance.now();
-const repeatedSameGesture = resolvedTarget === lastTrustedPointerTarget && now - lastTrustedPointerAt < 180;
-if (!repeatedSameGesture) {
-autoTourPauseSerial += 1;
-lastTrustedPointerAt = now;
-lastTrustedPointerTarget = resolvedTarget;
-}
-if (!autoTourPaused) {
-autoTourPauseSnapshot = captureAutoTourPauseSnapshot();
-autoTourPaused = true;
-autoTourResumeInProgress = false;
-root.classList.add('auto-tour-paused');
-document.body.classList.add('avatar-tour-paused');
-mobileTourScrollToken += 1;
-cancelAnimationFrame(mobileTourScrollFrame);
-document.documentElement.classList.remove('avatar-tour-programmatic-scroll');
-}
-autoTourPauseTarget = resolvedTarget || autoTourPauseTarget;
-renderPausedInteraction(autoTourPauseTarget);
-clearTimeout(interactionExplainTimer);
-interactionExplainTimer = window.setTimeout(
-() => renderPausedInteraction(autoTourPauseTarget),
-reducedMotion ? 0 : 150
-);
-}
+    if (!autoTourRunning) return;
+    if (target instanceof Element && root.contains(target)) return;
+
+    const resolvedTarget = target instanceof Element
+      ? target
+      : document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+
+    const now = performance.now();
+    const repeatedSameGesture = resolvedTarget === lastTrustedPointerTarget && now - lastTrustedPointerAt < 180;
+    if (!repeatedSameGesture) {
+      autoTourPauseSerial += 1;
+      lastTrustedPointerAt = now;
+      lastTrustedPointerTarget = resolvedTarget;
+    }
+
+    if (!autoTourPaused) {
+      autoTourPauseSnapshot = captureAutoTourPauseSnapshot();
+      autoTourPaused = true;
+      autoTourResumeInProgress = false;
+      root.classList.add('auto-tour-paused');
+      document.body.classList.add('avatar-tour-paused');
+
+      // Stop guide-owned movement immediately on the FIRST genuine interruption.
+      mobileTourScrollToken += 1;
+      cancelAnimationFrame(mobileTourScrollFrame);
+      document.documentElement.classList.remove('avatar-tour-programmatic-scroll');
+
+      autoTourPauseTarget = resolvedTarget || autoTourPauseTarget;
+      renderPausedInteraction(autoTourPauseTarget);
+      clearTimeout(interactionExplainTimer);
+      interactionExplainTimer = window.setTimeout(
+        () => {
+          if (!autoTourRunning || !autoTourPaused || autoTourWritingPauseCopy) return;
+          renderPausedInteraction(autoTourPauseTarget);
+        },
+        reducedMotion ? 0 : 150
+      );
+      return;
+    }
+
+    // IMPORTANT: while already paused, never rewrite/open the guide synchronously
+    // on pointerdown/touchstart. On mobile that can change layout between the
+    // initial press and the browser-generated click, cancelling controls such as
+    // "Explore the Process". Let the portfolio action complete first, then refresh
+    // the contextual narration from the settled state.
+    autoTourPauseTarget = resolvedTarget || autoTourPauseTarget;
+    clearTimeout(interactionExplainTimer);
+    interactionExplainTimer = window.setTimeout(() => {
+      if (!autoTourRunning || !autoTourPaused || autoTourWritingPauseCopy || autoTourResumeInProgress) return;
+      renderPausedInteraction(autoTourPauseTarget);
+    }, reducedMotion ? 0 : 190);
+  }
 async function waitOutsideTour(predicate, timeout = 18000) {
 const started = performance.now();
 while (autoTourRunning && performance.now() - started < timeout) {
@@ -7382,4 +7404,29 @@ current.card.click();
 };
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
 else boot();
-})();</script><style id="mobile-guide-panel-avatar-layout-final-v29">@media (max-width:768px){#portfolioGuide.is-open,body.avatar-tour-active #portfolioGuide.is-open,body.avatar-tour-paused #portfolioGuide.is-open,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open,body.avatar-tour-paused #portfolioGuide.auto-tour-paused.is-open{position:fixed !important;left:max(6px,env(safe-area-inset-left)) !important;right:max(6px,env(safe-area-inset-right)) !important;bottom:calc(6px + env(safe-area-inset-bottom)) !important;top:auto !important;width:auto !important;height:auto !important;min-height:0 !important;max-height:none !important;display:block !important;overflow:visible !important;contain:none !important;transform:none !important;pointer-events:none !important;z-index:30000 !important}#portfolioGuide.is-open .portfolio-guide-panel,#portfolioGuide.is-open.in-showcase .portfolio-guide-panel,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .portfolio-guide-panel,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open.in-showcase .portfolio-guide-panel,body.avatar-tour-paused #portfolioGuide.auto-tour-paused.is-open .portfolio-guide-panel{position:relative !important;inset:auto !important;left:auto !important;right:auto !important;top:auto !important;bottom:auto !important;width:100% !important;height:auto !important;min-height:0 !important;max-height:min(34dvh,220px) !important;margin:0 !important;padding:12px 13px 11px !important;overflow-x:hidden !important;overflow-y:auto !important;border-radius:17px !important;transform:none !important;transform-origin:center bottom !important;contain:layout paint style !important;pointer-events:auto !important;box-shadow:0 12px 30px rgba(9,5,20,.34) !important;-webkit-overflow-scrolling:touch !important;scrollbar-width:thin}#portfolioGuide.is-open .portfolio-guide-toggle,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .portfolio-guide-toggle,body.avatar-tour-paused #portfolioGuide.auto-tour-paused.is-open .portfolio-guide-toggle{display:none !important;visibility:hidden !important;opacity:0 !important;pointer-events:none !important}#portfolioGuide.is-open .portfolio-guide-panel::after,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .portfolio-guide-panel::after{display:none !important;content:none !important}#portfolioGuide.is-open .guide-panel-head,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-panel-head{position:relative !important;display:flex !important;align-items:center !important;gap:8px !important;width:100% !important;min-height:31px !important;height:auto !important;margin:0 0 6px !important;padding:0 32px 0 0 !important}#portfolioGuide.is-open .guide-panel-mini-avatar,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-panel-mini-avatar{display:block !important;width:32px !important;height:32px !important;flex:0 0 32px !important}#portfolioGuide.is-open .guide-panel-title,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-panel-title{min-width:0 !important;flex:1 1 auto !important}#portfolioGuide.is-open .guide-panel-kicker,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-panel-kicker{font-size:.47rem !important;line-height:1.05 !important;letter-spacing:1.05px !important}#portfolioGuide.is-open .guide-panel-title strong,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-panel-title strong{display:-webkit-box !important;overflow:hidden !important;white-space:normal !important;text-overflow:clip !important;-webkit-box-orient:vertical !important;-webkit-line-clamp:2 !important;font-size:.72rem !important;line-height:1.16 !important}#portfolioGuide.is-open .guide-panel-close,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-panel-close{position:absolute !important;top:8px !important;right:8px !important;width:25px !important;height:25px !important;z-index:3 !important}#portfolioGuide.is-open .guide-message,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-message{position:static !important;display:block !important;width:100% !important;min-height:0 !important;max-height:60px !important;margin:0 !important;padding:0 1px 0 0 !important;overflow-x:hidden !important;overflow-y:auto !important;color:rgba(255,255,255,.93) !important;font-size:.65rem !important;line-height:1.32 !important;-webkit-line-clamp:unset !important;scrollbar-width:thin}#portfolioGuide.is-open .guide-progress,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-progress{position:static !important;inset:auto !important;left:auto !important;right:auto !important;top:auto !important;bottom:auto !important;display:flex !important;width:100% !important;margin:8px 0 0 !important;padding:0 !important;gap:7px !important}#portfolioGuide.is-open #guideActions,#portfolioGuide.is-open .guide-actions,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open #guideActions,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-actions{position:static !important;inset:auto !important;left:auto !important;right:auto !important;top:auto !important;bottom:auto !important;width:100% !important;display:grid !important;grid-template-columns:repeat(auto-fit,minmax(105px,1fr)) !important;align-items:stretch !important;gap:7px !important;margin:8px 0 0 !important;padding:0 !important}#portfolioGuide.is-open #guideActions .guide-action,#portfolioGuide.is-open .guide-actions .guide-action,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-action{position:static !important;inset:auto !important;width:100% !important;min-width:0 !important;min-height:32px !important;padding:7px 8px !important;margin:0 !important;font-size:.50rem !important;line-height:1.08 !important;white-space:nowrap !important}#portfolioGuide:not(.is-open) .portfolio-guide-toggle,body.avatar-tour-paused #portfolioGuide.auto-tour-paused:not(.is-open) .portfolio-guide-toggle{position:fixed !important;display:block !important;visibility:visible !important;opacity:1 !important;right:calc(10px + env(safe-area-inset-right)) !important;bottom:calc(10px + env(safe-area-inset-bottom)) !important;width:56px !important;height:56px !important;z-index:30020 !important;pointer-events:auto !important}body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open{height:auto !important}}@media (max-width:380px){#portfolioGuide.is-open .portfolio-guide-panel,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .portfolio-guide-panel{max-height:min(36dvh,215px) !important;padding:11px 11px 10px !important}#portfolioGuide.is-open #guideActions,#portfolioGuide.is-open .guide-actions,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-actions{gap:6px !important}#portfolioGuide.is-open #guideActions .guide-action,#portfolioGuide.is-open .guide-actions .guide-action,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-action{padding-inline:6px !important;font-size:.47rem !important}}</style></body></html>
+})();</script><style id="mobile-guide-panel-avatar-layout-final-v29">@media (max-width:768px){#portfolioGuide.is-open,body.avatar-tour-active #portfolioGuide.is-open,body.avatar-tour-paused #portfolioGuide.is-open,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open,body.avatar-tour-paused #portfolioGuide.auto-tour-paused.is-open{position:fixed !important;left:max(6px,env(safe-area-inset-left)) !important;right:max(6px,env(safe-area-inset-right)) !important;bottom:calc(6px + env(safe-area-inset-bottom)) !important;top:auto !important;width:auto !important;height:auto !important;min-height:0 !important;max-height:none !important;display:block !important;overflow:visible !important;contain:none !important;transform:none !important;pointer-events:none !important;z-index:30000 !important}#portfolioGuide.is-open .portfolio-guide-panel,#portfolioGuide.is-open.in-showcase .portfolio-guide-panel,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .portfolio-guide-panel,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open.in-showcase .portfolio-guide-panel,body.avatar-tour-paused #portfolioGuide.auto-tour-paused.is-open .portfolio-guide-panel{position:relative !important;inset:auto !important;left:auto !important;right:auto !important;top:auto !important;bottom:auto !important;width:100% !important;height:auto !important;min-height:0 !important;max-height:min(34dvh,220px) !important;margin:0 !important;padding:12px 13px 11px !important;overflow-x:hidden !important;overflow-y:auto !important;border-radius:17px !important;transform:none !important;transform-origin:center bottom !important;contain:layout paint style !important;pointer-events:auto !important;box-shadow:0 12px 30px rgba(9,5,20,.34) !important;-webkit-overflow-scrolling:touch !important;scrollbar-width:thin}#portfolioGuide.is-open .portfolio-guide-toggle,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .portfolio-guide-toggle,body.avatar-tour-paused #portfolioGuide.auto-tour-paused.is-open .portfolio-guide-toggle{display:none !important;visibility:hidden !important;opacity:0 !important;pointer-events:none !important}#portfolioGuide.is-open .portfolio-guide-panel::after,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .portfolio-guide-panel::after{display:none !important;content:none !important}#portfolioGuide.is-open .guide-panel-head,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-panel-head{position:relative !important;display:flex !important;align-items:center !important;gap:8px !important;width:100% !important;min-height:31px !important;height:auto !important;margin:0 0 6px !important;padding:0 32px 0 0 !important}#portfolioGuide.is-open .guide-panel-mini-avatar,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-panel-mini-avatar{display:block !important;width:32px !important;height:32px !important;flex:0 0 32px !important}#portfolioGuide.is-open .guide-panel-title,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-panel-title{min-width:0 !important;flex:1 1 auto !important}#portfolioGuide.is-open .guide-panel-kicker,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-panel-kicker{font-size:.47rem !important;line-height:1.05 !important;letter-spacing:1.05px !important}#portfolioGuide.is-open .guide-panel-title strong,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-panel-title strong{display:-webkit-box !important;overflow:hidden !important;white-space:normal !important;text-overflow:clip !important;-webkit-box-orient:vertical !important;-webkit-line-clamp:2 !important;font-size:.72rem !important;line-height:1.16 !important}#portfolioGuide.is-open .guide-panel-close,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-panel-close{position:absolute !important;top:8px !important;right:8px !important;width:25px !important;height:25px !important;z-index:3 !important}#portfolioGuide.is-open .guide-message,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-message{position:static !important;display:block !important;width:100% !important;min-height:0 !important;max-height:60px !important;margin:0 !important;padding:0 1px 0 0 !important;overflow-x:hidden !important;overflow-y:auto !important;color:rgba(255,255,255,.93) !important;font-size:.65rem !important;line-height:1.32 !important;-webkit-line-clamp:unset !important;scrollbar-width:thin}#portfolioGuide.is-open .guide-progress,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-progress{position:static !important;inset:auto !important;left:auto !important;right:auto !important;top:auto !important;bottom:auto !important;display:flex !important;width:100% !important;margin:8px 0 0 !important;padding:0 !important;gap:7px !important}#portfolioGuide.is-open #guideActions,#portfolioGuide.is-open .guide-actions,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open #guideActions,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-actions{position:static !important;inset:auto !important;left:auto !important;right:auto !important;top:auto !important;bottom:auto !important;width:100% !important;display:grid !important;grid-template-columns:repeat(auto-fit,minmax(105px,1fr)) !important;align-items:stretch !important;gap:7px !important;margin:8px 0 0 !important;padding:0 !important}#portfolioGuide.is-open #guideActions .guide-action,#portfolioGuide.is-open .guide-actions .guide-action,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-action{position:static !important;inset:auto !important;width:100% !important;min-width:0 !important;min-height:32px !important;padding:7px 8px !important;margin:0 !important;font-size:.50rem !important;line-height:1.08 !important;white-space:nowrap !important}#portfolioGuide:not(.is-open) .portfolio-guide-toggle,body.avatar-tour-paused #portfolioGuide.auto-tour-paused:not(.is-open) .portfolio-guide-toggle{position:fixed !important;display:block !important;visibility:visible !important;opacity:1 !important;right:calc(10px + env(safe-area-inset-right)) !important;bottom:calc(10px + env(safe-area-inset-bottom)) !important;width:56px !important;height:56px !important;z-index:30020 !important;pointer-events:auto !important}body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open{height:auto !important}}@media (max-width:380px){#portfolioGuide.is-open .portfolio-guide-panel,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .portfolio-guide-panel{max-height:min(36dvh,215px) !important;padding:11px 11px 10px !important}#portfolioGuide.is-open #guideActions,#portfolioGuide.is-open .guide-actions,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-actions{gap:6px !important}#portfolioGuide.is-open #guideActions .guide-action,#portfolioGuide.is-open .guide-actions .guide-action,body.avatar-tour-active #portfolioGuide.auto-tour-running.is-open .guide-action{padding-inline:6px !important;font-size:.47rem !important}}</style>
+<!-- MOBILE PAUSED TOUR CONTROL PASS-THROUGH REPAIR -->
+<style id="mobile-paused-tour-process-control-pass-through-v30">
+@media (max-width: 768px) {
+  /* Portfolio controls remain genuine tap targets while the guide is paused. */
+  body.avatar-tour-paused #brandStrategyExplore,
+  body.avatar-tour-paused #brandStrategyVisual .brand-orbit-trigger {
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* The guide root itself must never become a transparent full-screen blocker;
+     only the visible panel is interactive. */
+  body.avatar-tour-paused #portfolioGuide {
+    pointer-events: none !important;
+  }
+  body.avatar-tour-paused #portfolioGuide .portfolio-guide-panel,
+  body.avatar-tour-paused #portfolioGuide .portfolio-guide-panel *,
+  body.avatar-tour-paused #portfolioGuide:not(.is-open) .portfolio-guide-toggle {
+    pointer-events: auto !important;
+  }
+}
+</style>
+
+</body></html>
